@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Comment Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f9fafb; margin: 0; padding: 0; }
+        
+        /* Smooth transitions for word chips */
+        .word-chip { transition: all 0.2s ease; cursor: pointer; border-width: 2px; }
+        .word-chip:hover:not(.selected) { filter: brightness(0.95); }
+        
+        /* Group A Colors (Green) */
+        .group-A-unselected { background-color: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+        .group-A-selected { background-color: #16a34a; border-color: #16a34a; color: white; }
+        
+        /* Group B Colors (Blue) */
+        .group-B-unselected { background-color: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
+        .group-B-selected { background-color: #2563eb; border-color: #2563eb; color: white; }
+
+        /* Group C Colors (Purple) */
+        .group-C-unselected { background-color: #faf5ff; border-color: #e9d5ff; color: #6b21a8; }
+        .group-C-selected { background-color: #9333ea; border-color: #9333ea; color: white; }
+
+        /* Group D Colors (Orange) */
+        .group-D-unselected { background-color: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+        .group-D-selected { background-color: #ea580c; border-color: #ea580c; color: white; }
+
+        /* Styling for the options radio buttons */
+        input[type="radio"]:checked + label {
+            font-weight: 500;
+            color: #1e3a8a;
+        }
+
+        /* Custom scrollbar for word lists */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.5); border-radius: 20px; }
+    </style>
+</head>
+<body class="text-gray-800 antialiased flex flex-col h-full w-full">
+
+    <!-- Iframe-safe Notification Area (Relative instead of Fixed) -->
+    <div id="notificationArea" class="hidden w-full max-w-4xl mx-auto mt-4 px-6 py-3 rounded shadow-md text-white font-bold transition-opacity duration-300"></div>
+
+    <div id="loginSection" class="flex-grow flex items-center justify-center p-4 mt-8">
+        <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-100">
+            <h1 class="text-2xl font-bold text-center text-indigo-600 mb-6">Teacher Portal Login</h1>
+            <div id="loginError" class="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm hidden"></div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                    <input type="text" id="username" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Enter your login name">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="password" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Enter your password">
+                </div>
+                <button id="loginBtn" onclick="app.handleLogin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200">
+                    Sign In
+                </button>
+            </div>
+            <p class="text-xs text-gray-400 text-center mt-6">Connecting to Google Sheets</p>
+        </div>
+    </div>
+
+    <div id="mainApp" class="hidden flex-col h-full w-full">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b px-6 py-4 flex justify-between items-center sticky top-0 z-10">
+            <h1 class="text-xl font-bold text-indigo-600">Comment Generator Portal</h1>
+            <div class="flex items-center gap-4">
+                <span class="text-sm text-gray-600 font-medium hidden sm:inline">Teacher: <span id="displayUser" class="text-gray-900 font-bold"></span></span>
+                <button onclick="app.logout()" class="text-sm px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-md font-semibold transition">Logout</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="p-4 md:p-8 max-w-4xl mx-auto w-full space-y-6 pb-12">
+            
+            <!-- Step 1: Student Details -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h2 class="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
+                    <span class="bg-indigo-100 text-indigo-700 rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span> 
+                    Student Details
+                </h2>
+                <div class="flex flex-col md:flex-row gap-4">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Student Name</label>
+                        <input type="text" id="studentName" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="e.g. Tai Man">
+                    </div>
+                    <div class="w-full md:w-1/3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                        <select id="studentGender" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <option value="M">Male</option>
+                            <option value="F">Female</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Word Selection -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-4 border-b border-gray-100 pb-3 gap-2 sm:gap-0">
+                    <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                        <span class="bg-indigo-100 text-indigo-700 rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span> 
+                        Select Comment Words
+                    </h2>
+                    <div class="flex flex-col sm:flex-row gap-2 items-start sm:items-end text-right">
+                        <span class="text-xs font-medium bg-yellow-100 text-yellow-800 px-2 py-1 rounded shadow-sm border border-yellow-200">Rule: Positive (A/C) must be ≥ Suggestions (B/D)</span>
+                        <span class="text-xs font-medium bg-blue-50 text-blue-700 px-2 py-1 rounded shadow-sm border border-blue-200">Limit: 1 Word per Group</span>
+                    </div>
+                </div>
+                
+                <div id="wordsLoading" class="text-center py-8 text-gray-500 font-medium">
+                    Downloading words from Google Sheet...
+                </div>
+                
+                <!-- Dynamic Words Container -->
+                <div id="wordsContainer" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Step 3: Generation and Export -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h2 class="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
+                    <span class="bg-indigo-100 text-indigo-700 rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span> 
+                    Generate & Export
+                </h2>
+                
+                <div id="validationError" class="bg-red-50 text-red-600 p-4 rounded-lg text-sm mb-4 hidden border border-red-200 shadow-sm"></div>
+
+                <!-- VPN Bypass Instructions Block (Hidden by default) -->
+                <div id="proxyInstructions" class="hidden mb-6 bg-blue-50 p-6 rounded-xl border border-blue-200">
+                    <h3 class="text-lg font-bold text-blue-800 mb-2">🛡️ Network Block Detected (VPN Bypass Setup Required)</h3>
+                    <p class="text-sm text-blue-700 mb-4">Because the direct AI connection is blocked in your region, you need to use Google Apps Script as a secure bridge to use this tool <strong>without a VPN</strong>. Follow these steps once:</p>
+                    <ol class="list-decimal pl-5 text-sm text-blue-800 space-y-2 mb-4 font-medium">
+                        <li>Go to <a href="https://script.google.com" target="_blank" class="underline text-indigo-600">script.google.com</a> and click "New Project".</li>
+                        <li>Delete any existing code and paste the exact code from the black box below.</li>
+                        <li>Click <strong>Deploy > New deployment</strong>. Select type: <strong>Web app</strong>.</li>
+                        <li>Set "Execute as" to <strong>Me</strong> and "Who has access" to <strong>Anyone</strong>. Click Deploy.</li>
+                        <li>Copy the new Web App URL and paste it into the <code>urls.generateProxyScript</code> variable (around line 258) in the HTML code of this site.</li>
+                    </ol>
+                    <div class="relative">
+                        <textarea readonly class="w-full h-56 bg-gray-900 text-green-400 p-4 rounded font-mono text-xs focus:outline-none cursor-pointer" onclick="this.select()" title="Click to select all">function doPost(e) {
+  var req = JSON.parse(e.postData.contents);
+  var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + req.apiKey;
+  var payload = {
+    contents: [{ parts: [{ text: req.prompt }] }],
+    generationConfig: { temperature: 0.8, responseMimeType: "application/json" }
+  };
+  var res = UrlFetchApp.fetch(url, {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+  return ContentService.createTextOutput(res.getContentText()).setMimeType(ContentService.MimeType.JSON);
+}</textarea>
+                    </div>
+                </div>
+
+                <button id="generateBtn" onclick="app.generateComments()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-xl transition duration-200 shadow-md text-lg">
+                    Generate Comments
+                </button>
+
+                <!-- Loading State -->
+                <div id="generationLoading" class="hidden flex flex-col items-center justify-center py-8">
+                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-4"></div>
+                    <p class="text-gray-500 font-medium">Drafting options based on selected traits...</p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="resultsSection" class="hidden mt-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <h3 class="text-md font-semibold mb-4 text-gray-700">Select the best option:</h3>
+                    <div id="optionsContainer" class="space-y-4">
+                        <!-- Options go here -->
+                    </div>
+
+                    <div class="mt-6 pt-6 border-t border-gray-300">
+                        <button id="exportBtn" onclick="app.exportSelected()" class="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-4 px-4 rounded-xl transition duration-200 shadow-md text-lg" disabled>
+                            Export Selected to Google Sheets
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+        </main>
+    </div>
+
+    <script>
+// Paste your newly created Apps Script Web App URL inside the quotes:
+generateProxyScript: "https://script.google.com/macros/s/AKfycbwC_xszcNcZy4rzLyU56sZnb6MGbdjlnMZq7U3LDSAklT2HJ5UNvPryDMgtIEXUeIkN2Q/exec"
+
+        // --- CONFIGURATION ---
+        const app = {
+            // Application State
+            state: {
+                currentUser: null,
+                words: [], 
+                generatedOptions: [],
+                selectedOptionIndex: null
+            },
+
+            urls: {
+                loginData: "https://docs.google.com/spreadsheets/d/1zt0_PuVPvJzlurZIfaqVYKcoBQ2gUUYi_JV9VXYcFR0/gviz/tq?tqx=out:csv&gid=0",
+                wordsData: "https://docs.google.com/spreadsheets/d/186lHJLEV0eXaktDwsv4YL_A5tkpHI5_YwExfHuFrK3w/gviz/tq?tqx=out:csv",
+                
+                // IMPORTANT: Replace this URL with your NEW deployed Web App URL from the green instructions box!
+                exportScript: "https://script.google.com/macros/s/AKfycbydxFw-RqoAwjpHFWeK1ofyHu0-z9GgdHdpxqBjxxEBiwgA1NOqGToOkeV389815kC7kw/exec",
+                
+                // Proxy script URL configuration for bypass (if required in standard environments)
+                generateProxyScript: "" 
+            },
+
+            // --- UTILITY FUNCTIONS ---
+            async fetchWithRetry(url, options) {
+                // Implement exponential backoff for API calls
+                const delays = [1000, 2000, 4000, 8000, 16000];
+                for (let i = 0; i < 5; i++) {
+                    try {
+                        const response = await fetch(url, options);
+                        if (!response.ok) {
+                            const errText = await response.text().catch(() => "");
+                            throw new Error(`[${url}] HTTP ${response.status}: ${errText}`);
+                        }
+                        return await response.json();
+                    } catch (error) {
+                        if (i === 4) throw error; // Max retries reached
+                        await new Promise(res => setTimeout(res, delays[i]));
+                    }
+                }
+            },
+
+            showNotification(msg, type = 'success') {
+                const notif = document.getElementById('notificationArea');
+                notif.innerText = msg;
+                notif.className = `w-full max-w-4xl mx-auto mt-4 px-6 py-3 rounded shadow-md text-white font-bold transition-opacity duration-300 block ${type === 'error' ? 'bg-red-500' : 'bg-green-500'}`;
+                window.scrollTo({ top: 0, behavior: 'smooth' }); // Ensure it's seen in the iframe
+                setTimeout(() => {
+                    notif.classList.add('hidden');
+                    notif.classList.remove('block');
+                }, 5000);
+            },
+
+            parseCSV(text) {
+                const result = [];
+                let row = [];
+                let inQuotes = false;
+                let value = '';
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i];
+                    if (char === '"') {
+                        if (inQuotes && text[i+1] === '"') { value += '"'; i++; } 
+                        else { inQuotes = !inQuotes; }
+                    } else if (char === ',' && !inQuotes) {
+                        row.push(value.trim()); value = '';
+                    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+                        if (char === '\r' && text[i+1] === '\n') i++; 
+                        row.push(value.trim()); result.push(row);
+                        row = []; value = '';
+                    } else {
+                        value += char;
+                    }
+                }
+                if (value || row.length > 0) { row.push(value.trim()); result.push(row); }
+                return result.filter(r => r.length > 0 && r.some(v => v !== '')); 
+            },
+
+            // --- LOGIN LOGIC ---
+            async handleLogin() {
+                const user = document.getElementById('username').value.trim();
+                const pass = document.getElementById('password').value;
+                const errorEl = document.getElementById('loginError');
+                const btn = document.getElementById('loginBtn');
+                
+                if(!user || !pass) {
+                    errorEl.innerText = "Please enter both username and password.";
+                    errorEl.classList.remove('hidden');
+                    return;
+                }
+
+                btn.innerText = "Verifying..."; btn.disabled = true;
+                errorEl.classList.add('hidden');
+
+                try {
+                    const res = await fetch(this.urls.loginData);
+                    const text = await res.text();
+
+                    // Iframe Google Sandbox Check
+                    if (text.toLowerCase().includes("<!doctype html>") || text.includes("<html")) {
+                        throw new Error("Sheet access blocked. Make sure the Google Sheet is shared as 'Anyone with the link can view'.");
+                    }
+
+                    const data = this.parseCSV(text);
+                    
+                    let valid = false;
+                    for(let i = 1; i < data.length; i++) {
+                        if(data[i][0] === user && data[i][1] === pass) {
+                            valid = true; break;
+                        }
+                    }
+
+                    if(valid) {
+                        this.state.currentUser = user;
+                        document.getElementById('displayUser').innerText = user;
+                        document.getElementById('loginSection').classList.add('hidden');
+                        document.getElementById('mainApp').classList.remove('hidden');
+                        document.getElementById('mainApp').classList.add('flex');
+                        this.loadWords();
+                    } else {
+                        errorEl.innerText = "Invalid username or password.";
+                        errorEl.classList.remove('hidden');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    errorEl.innerText = e.message || "Connection error. Please check your internet or sheet link.";
+                    errorEl.classList.remove('hidden');
+                }
+                btn.innerText = "Sign In"; btn.disabled = false;
+            },
+
+            logout() {
+                this.state.currentUser = null;
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+                document.getElementById('mainApp').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('flex');
+                document.getElementById('loginSection').classList.remove('hidden');
+            },
+
+            // --- DATA LOADING & RENDERING ---
+            async loadWords() {
+                try {
+                    const res = await fetch(this.urls.wordsData);
+                    const text = await res.text();
+                    
+                    // Iframe Google Sandbox Check
+                    if (text.toLowerCase().includes("<!doctype html>") || text.includes("<html")) {
+                        throw new Error("Sheet access blocked. Make sure the Google Sheet is shared as 'Anyone with the link can view'.");
+                    }
+
+                    const data = this.parseCSV(text);
+                    
+                    this.state.words = [];
+                    for(let i = 1; i < data.length; i++) {
+                        const row = data[i];
+                        if(row.length >= 4 && row[2]) {
+                            this.state.words.push({
+                                id: i,
+                                group: row[1],
+                                english: row[2],
+                                chinese: row[3] || '',
+                                selected: false
+                            });
+                        }
+                    }
+                    this.renderWords();
+                } catch(e) {
+                    console.error(e);
+                    document.getElementById('wordsLoading').innerText = "Error loading words: " + e.message;
+                }
+            },
+
+            renderWords() {
+                const container = document.getElementById('wordsContainer');
+                document.getElementById('wordsLoading').classList.add('hidden');
+                container.classList.remove('hidden');
+                container.innerHTML = '';
+
+                const grouped = { 'Group A': [], 'Group B': [], 'Group C': [], 'Group D': [] };
+                this.state.words.forEach(w => {
+                    let targetGroup = 'Group A';
+                    if (w.group.toUpperCase().includes('A')) targetGroup = 'Group A';
+                    else if (w.group.toUpperCase().includes('B')) targetGroup = 'Group B';
+                    else if (w.group.toUpperCase().includes('C')) targetGroup = 'Group C';
+                    else if (w.group.toUpperCase().includes('D')) targetGroup = 'Group D';
+                    
+                    if(!grouped[targetGroup]) grouped[targetGroup] = [];
+                    grouped[targetGroup].push(w);
+                });
+
+                for(const [groupName, words] of Object.entries(grouped)) {
+                    if (words.length === 0) continue; 
+                    
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = "bg-gray-50 p-5 rounded-xl border border-gray-200 flex flex-col h-full shadow-inner";
+                    
+                    let headerColor = "text-gray-700 border-gray-300";
+                    let subTitle = "";
+                    if(groupName === 'Group A') { headerColor = "text-green-700 border-green-300"; subTitle = "Positive Character"; }
+                    if(groupName === 'Group B') { headerColor = "text-blue-700 border-blue-300"; subTitle = "Character Suggestion"; }
+                    if(groupName === 'Group C') { headerColor = "text-purple-700 border-purple-300"; subTitle = "Academic Praise"; }
+                    if(groupName === 'Group D') { headerColor = "text-orange-700 border-orange-300"; subTitle = "Academic Suggestion"; }
+
+                    groupDiv.innerHTML = `
+                        <div class="border-b-2 ${headerColor} pb-2 mb-4 flex flex-col">
+                            <h3 class="text-md font-bold uppercase tracking-wider">${groupName}</h3>
+                            <span class="text-xs font-semibold opacity-80 mt-0.5">${subTitle}</span>
+                        </div>
+                    `;
+                    
+                    const listDiv = document.createElement('div');
+                    listDiv.className = "flex flex-col gap-2 overflow-y-auto max-h-72 pr-2 custom-scrollbar"; 
+                    
+                    const groupLetter = groupName.replace('Group ', '');
+                    
+                    words.forEach(w => {
+                        const listItem = document.createElement('div');
+                        const unselectedClass = `group-${groupLetter}-unselected`;
+                        const selectedClass = `group-${groupLetter}-selected`;
+                        
+                        listItem.className = `word-chip rounded-lg px-4 py-3 w-full flex justify-between items-center select-none shadow-sm ${w.selected ? selectedClass : unselectedClass}`;
+                        listItem.dataset.groupLetter = groupLetter;
+                        listItem.id = `word-chip-${w.id}`;
+
+                        listItem.innerHTML = `
+                            <div class="flex flex-col text-left">
+                                <span class="font-bold text-[15px]">${w.english}</span>
+                                <span class="text-xs opacity-90 mt-0.5">${w.chinese}</span>
+                            </div>
+                            <div class="checkmark-container w-6 h-6 border-2 rounded flex items-center justify-center flex-shrink-0 ml-3 font-bold transition-all ${w.selected ? 'border-white text-white' : 'border-current opacity-40'}">
+                                ${w.selected ? '✓' : ''}
+                            </div>
+                        `;
+                        listItem.onclick = () => this.toggleWord(w.id, listItem);
+                        listDiv.appendChild(listItem);
+                    });
+                    
+                    groupDiv.appendChild(listDiv);
+                    container.appendChild(groupDiv);
+                }
+            },
+
+            toggleWord(id, listItem) {
+                const word = this.state.words.find(w => w.id === id);
+                const groupLetter = listItem.dataset.groupLetter;
+
+                if (!word.selected) {
+                    const previousSelection = this.state.words.find(w => w.id !== id && w.selected && w.group.toUpperCase().includes(groupLetter));
+                    if (previousSelection) {
+                        previousSelection.selected = false;
+                        const prevListItem = document.getElementById(`word-chip-${previousSelection.id}`);
+                        if (prevListItem) {
+                            const unselectedClass = `group-${groupLetter}-unselected`;
+                            const selectedClass = `group-${groupLetter}-selected`;
+                            const prevCheckmark = prevListItem.querySelector('.checkmark-container');
+                            prevListItem.classList.remove(selectedClass);
+                            prevListItem.classList.add(unselectedClass);
+                            prevCheckmark.innerHTML = '';
+                            prevCheckmark.className = 'checkmark-container w-6 h-6 border-2 rounded flex items-center justify-center flex-shrink-0 ml-3 font-bold transition-all border-current opacity-40';
+                        }
+                    }
+                }
+
+                word.selected = !word.selected;
+                
+                const unselectedClass = `group-${groupLetter}-unselected`;
+                const selectedClass = `group-${groupLetter}-selected`;
+                const checkmark = listItem.querySelector('.checkmark-container');
+
+                if(word.selected) {
+                    listItem.classList.add(selectedClass);
+                    listItem.classList.remove(unselectedClass);
+                    checkmark.innerHTML = '✓';
+                    checkmark.className = 'checkmark-container w-6 h-6 border-2 rounded flex items-center justify-center flex-shrink-0 ml-3 font-bold transition-all border-white text-white';
+                } else {
+                    listItem.classList.remove(selectedClass);
+                    listItem.classList.add(unselectedClass);
+                    checkmark.innerHTML = '';
+                    checkmark.className = 'checkmark-container w-6 h-6 border-2 rounded flex items-center justify-center flex-shrink-0 ml-3 font-bold transition-all border-current opacity-40';
+                }
+            },
+
+            // --- GENERATION LOGIC ---
+            async generateComments() {
+                const nameInput = document.getElementById('studentName').value.trim();
+                const gender = document.getElementById('studentGender').value;
+                const errorEl = document.getElementById('validationError');
+                
+                if (!nameInput) {
+                    errorEl.innerText = "Please enter the student's name in Step 1.";
+                    errorEl.classList.remove('hidden');
+                    return;
+                }
+
+                const selected = this.state.words.filter(w => w.selected);
+                const positiveCount = selected.filter(w => w.group.includes('A') || w.group.includes('C')).length;
+                const suggestionCount = selected.filter(w => w.group.includes('B') || w.group.includes('D')).length;
+
+                if (suggestionCount > positiveCount) {
+                    errorEl.innerText = "Selection Requirements: Number of Positive Comments Selection (i.e. A/C) must be greater or equal to Suggestion Comments Selection (i.e. B/D).";
+                    errorEl.classList.remove('hidden');
+                    return;
+                }
+
+                if (selected.length === 0) {
+                    errorEl.innerText = "Please select at least one comment word to generate comments.";
+                    errorEl.classList.remove('hidden');
+                    return;
+                }
+
+                errorEl.classList.add('hidden');
+                document.getElementById('proxyInstructions').classList.add('hidden');
+                document.getElementById('generateBtn').classList.add('hidden');
+                document.getElementById('generationLoading').classList.remove('hidden');
+                document.getElementById('resultsSection').classList.add('hidden');
+
+                const name = nameInput;
+                // Use Chinese translation for the prompt if available, otherwise fallback to English
+                const allWordsList = selected.map(w => w.chinese || w.english).join('、');
+
+                // Prompt tailored for live-to-live active distinct variations in Traditional Chinese
+                const aiPrompt = `You are an expert class teacher providing report card comments.
+Write three distinct and highly varied options for a 3-line comment for the student named "${name}".
+IMPORTANT: ALL COMMENTS MUST BE WRITTEN ENTIRELY IN TRADITIONAL CHINESE (繁體中文).
+
+VARIATION REQUIREMENTS:
+- Option 1: Warm, encouraging, and growth-oriented. Focus on their potential.
+- Option 2: Formal, structured, and academic. Focus on objective observations.
+- Option 3: Concise, direct, and action-oriented. Focus on next steps.
+
+STRICT INSTRUCTIONS:
+1. START WITH NAME: Every single comment option MUST begin exactly with the student's name: "${name}". Do not add any introductory phrases before the name.
+2. USE THESE TRAITS: Integrate these concepts organically into the Chinese text: ${allWordsList}. Ensure a smooth transition if combining positive traits and suggestions.
+3. TONE & FLOW: Constructive and professional. Do not mention grades or specific academic subjects.
+4. FLAWLESS GRAMMAR: You MUST perform a rigorous grammar check. Ensure sentences flow naturally in Traditional Chinese.
+5. PRONOUNS: Use exactly the pronoun "${gender === 'M' ? '他' : '她'}" when referring to the student.
+
+Respond ONLY with a valid JSON array of exactly 3 strings representing the three variations. Example: ["Option 1 text", "Option 2 text", "Option 3 text"]`;
+
+// --- WITH THIS NEW SECURE PROXY BLOCK ---
+const url = this.urls.generateProxyScript;
+
+// We bundle the prompt up to send directly to your Google Script
+const payload = {
+    prompt: aiPrompt
+};
+
+                try {
+                    const result = await this.fetchWithRetry(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!textResponse) throw new Error("Invalid response format received from AI provider.");
+                    
+                    this.state.generatedOptions = JSON.parse(textResponse);
+                    this.renderOptions();
+
+                } catch (error) {
+                    console.error("API Generation Error: ", error);
+                    errorEl.innerText = "Error generating comments: " + error.message;
+                    errorEl.classList.remove('hidden');
+                    
+                    // Expose proxy instructions in case of network restriction
+                    document.getElementById('proxyInstructions').classList.remove('hidden');
+                } finally {
+                    document.getElementById('generateBtn').classList.remove('hidden');
+                    document.getElementById('generationLoading').classList.add('hidden');
+                }
+            },
+
+            renderOptions() {
+                const container = document.getElementById('optionsContainer');
+                container.innerHTML = '';
+                this.state.selectedOptionIndex = null;
+                document.getElementById('exportBtn').disabled = true;
+
+                this.state.generatedOptions.forEach((opt, index) => {
+                    const div = document.createElement('div');
+                    div.className = "relative flex items-start p-4 border border-gray-200 rounded-lg hover:bg-indigo-50 transition cursor-pointer option-container";
+                    div.onclick = () => {
+                        document.getElementById(`option-${index}`).checked = true;
+                        this.state.selectedOptionIndex = index;
+                        document.getElementById('exportBtn').disabled = false;
+                        
+                        // Highlight selection
+                        document.querySelectorAll('.option-container').forEach(c => {
+                            c.classList.remove('bg-indigo-50', 'border-indigo-300', 'ring-1', 'ring-indigo-300');
+                        });
+                        div.classList.add('bg-indigo-50', 'border-indigo-300', 'ring-1', 'ring-indigo-300');
+                    };
+
+                    div.innerHTML = `
+                        <div class="flex-shrink-0 mt-1">
+                            <input type="radio" name="commentOption" id="option-${index}" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 cursor-pointer">
+                        </div>
+                        <div class="ml-3 flex-1">
+                            <label for="option-${index}" class="font-medium text-gray-900 cursor-pointer block mb-1">Option ${index + 1}</label>
+                            <p class="text-sm text-gray-600 cursor-pointer">${opt}</p>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+
+                document.getElementById('resultsSection').classList.remove('hidden');
+                // Scroll to results seamlessly
+                document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            },
+
+            // --- EXPORT LOGIC ---
+            async exportSelected() {
+                if (this.state.selectedOptionIndex === null) return;
+                
+                const btn = document.getElementById('exportBtn');
+                btn.innerText = "Exporting to Sheets...";
+                btn.disabled = true;
+
+                const payload = {
+                    name: document.getElementById('studentName').value.trim(),
+                    teacher: this.state.currentUser,
+                    comment: this.state.generatedOptions[this.state.selectedOptionIndex],
+                    timestamp: new Date().toISOString()
+                };
+
+                try {
+                    // Export to configured GAS
+                    await fetch(this.urls.exportScript, {
+                        method: 'POST',
+                        mode: 'no-cors', // standard bypass for basic Google Apps Script POST requests from browser
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    this.showNotification("Comment successfully exported to Google Sheets!");
+                    
+                    // Reset UI for the next student
+                    document.getElementById('studentName').value = '';
+                    this.state.words.forEach(w => w.selected = false);
+                    this.renderWords(); 
+                    document.getElementById('resultsSection').classList.add('hidden');
+                    
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                } catch (error) {
+                    console.error("Export Error: ", error);
+                    this.showNotification("Failed to export comment. Check console for details.", "error");
+                } finally {
+                    btn.innerText = "Export Selected to Google Sheets";
+                }
+            }
+        };
+    </script>
+</body>
+</html>
