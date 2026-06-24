@@ -192,9 +192,6 @@
     </div>
 
     <script>
-// Paste your newly created Apps Script Web App URL inside the quotes:
-generateProxyScript: "https://script.google.com/macros/s/AKfycbwC_xszcNcZy4rzLyU56sZnb6MGbdjlnMZq7U3LDSAklT2HJ5UNvPryDMgtIEXUeIkN2Q/exec"
-
         // --- CONFIGURATION ---
         const app = {
             // Application State
@@ -213,7 +210,7 @@ generateProxyScript: "https://script.google.com/macros/s/AKfycbwC_xszcNcZy4rzLyU
                 exportScript: "https://script.google.com/macros/s/AKfycbydxFw-RqoAwjpHFWeK1ofyHu0-z9GgdHdpxqBjxxEBiwgA1NOqGToOkeV389815kC7kw/exec",
                 
                 // Proxy script URL configuration for bypass (if required in standard environments)
-                generateProxyScript: "https://script.google.com/macros/s/AKfycbwC_xszcNcZy4rzLyU56sZnb6MGbdjlnMZq7U3LDSAklT2HJ5UNvPryDMgtIEXUeIkN2Q/exec" 
+                generateProxyScript: "" 
             },
 
             // --- UTILITY FUNCTIONS ---
@@ -532,12 +529,16 @@ STRICT INSTRUCTIONS:
 
 Respond ONLY with a valid JSON array of exactly 3 strings representing the three variations. Example: ["Option 1 text", "Option 2 text", "Option 3 text"]`;
 
-// --- WITH THIS NEW SECURE PROXY BLOCK ---
-const url = this.urls.generateProxyScript;
+// --- REPLACE THIS OLD BLOCK ---
+const apiKey = "AQ.Ab8RN6IC_M_WZDxt2b0FrZcDrpX54bGye41qnnVPCLQYEX0Dww"; 
+const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
-// We bundle the prompt up to send directly to your Google Script
 const payload = {
-    prompt: aiPrompt
+    contents: [{ parts: [{ text: aiPrompt }] }],
+    generationConfig: { 
+        temperature: 0.8, 
+        responseMimeType: "application/json" 
+    }
 };
 
                 try {
